@@ -8,14 +8,14 @@ app.use(cors());
 
 let nodes = {};
 
+const OFFLINE_TIMEOUT = 5 * 60 * 1000; // 5 minutes
+
 app.post("/update", (req, res) => {
   const data = req.body;
 
-  // ESP32 sends { nodes: [...] }
-  // loop through each node and store individually
   if (data.nodes && Array.isArray(data.nodes)) {
     data.nodes.forEach(n => {
-      nodes[n.id] = n;
+      nodes[n.id] = { ...n, receivedAt: Date.now() };
     });
   }
 
@@ -24,9 +24,11 @@ app.post("/update", (req, res) => {
 });
 
 app.get("/latest", (req, res) => {
-  res.json({
-    nodes: Object.values(nodes)
-  });
+  const now = Date.now();
+  const alive = Object.values(nodes).filter(
+    n => (now - n.receivedAt) < OFFLINE_TIMEOUT
+  );
+  res.json({ nodes: alive });
 });
 
 app.listen(process.env.PORT || 3000, () => {
